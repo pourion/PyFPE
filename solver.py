@@ -19,12 +19,13 @@ class rbf_fp:
 	@dim = dimension of the problem, dim=1,2,3
 	@box = specificities of the computational box 
 	"""
-	def __init__(self, dim, box, Ndim):
+	def __init__(self, dim, box, Ndim, tf=1.0, dt=0.01, drift=None, diffusion=None, source=None, phi=None, Dirichlet_bc=None, time_dependent=True):
 		self.PLOTMESH = False
 		self.rbf = "MQ"
-		self.dt  = 0.01
-		self.tf  = 0.2
+		self.dt  = dt
+		self.tf  = tf
 		self.tn  = 0.0
+		self.time_dependent = time_dependent
 		self.x_mean = []
 		self.x_var  = []
 		self.mass_store = []
@@ -39,12 +40,33 @@ class rbf_fp:
 			self.zmin = box['zmin']
 			self.zmax = box['zmax']
 		self.mesh('uniform')
+		if drift is not None:
+			self.drift = drift
+		else:
+			self.drift = self.drift_default
+		if diffusion is not None:
+			self.diffusion = diffusion
+		else:
+			self.diffusion = self.diffusion_default
+		if source is not None:
+			self.source = source
+		else:
+			self.source = self.source_default
+		if phi is not None:
+			self.phix = phi
+		else:
+			self.phix = self.phi_default
+		if Dirichlet_bc is not None:
+			self.Dirichlet_bc = Dirichlet_bc
+		else:
+			self.Dirichlet_bc = self.Dirichlet_bc_default
 		self.setup_coefficients()
+		self.report_PDE()
 		self.initial_condition()
 		self.M_built = False
 		self.build_linear_system()
 		self.solve()
-		pdb.set_trace()
+
 
 	def mesh(self, type='uniform'):
 		if type=='uniform':
@@ -202,9 +224,9 @@ class rbf_fp:
 	drift coefficient 
 	@pnt: [x, y, z]
 	"""
-	def drift(self, t, x, y=None, z=None):
+	def drift_default(self, t, x, y=None, z=None):
 		if self.dim==1:
-			return np.array([1 + x])
+			return np.array([0.85 - x])
 		if self.dim==2:
 			if y is None: x, y = x[0], x[1]
 			return np.array([x, y])
@@ -215,9 +237,9 @@ class rbf_fp:
 	diffusion coefficient 
 	@pnt: [x, y, z]
 	"""
-	def diffusion(self, t, x, y=None, z=None):
+	def diffusion_default(self, t, x, y=None, z=None):
 		if self.dim==1:
-			return np.array([x*x - 0.1*x + 0.1])
+			return np.array([x*x - 0.18*x + 0.01])
 		if self.dim==2:
 			if y is None: x, y = x[0], x[1]
 			return np.array([[x*x, 0.0*x], [0.0*x, y*y]])
@@ -228,7 +250,7 @@ class rbf_fp:
 	source term 
 	@pnt: [x, y, z]
 	"""
-	def source(self, t, x, y=None, z=None):
+	def source_default(self, t, x, y=None, z=None):
 		if self.dim==1:
 			return 0.0
 		if self.dim==2:
@@ -240,17 +262,34 @@ class rbf_fp:
 
 	def phi_utility(self, j):
 		cmin = -0.05
-		cmax= 0.05
-		xj = self.X[j]
-		cj = cmin + (cmax - cmin)*j/(self.N - 1)
+		cmax = 0.05
+		xj   = self.X[j]
+		cj   = cmin + (cmax - cmin)*j/(self.N - 1)
 		return cj, xj
 
-	def phix(self, x, xj, cj):
+	def phi_default(self, x, xj, cj):
 		if self.dim==1:
 			phi = ((x - xj)**2 + cj**2)**0.5
 		return phi
 
 
+	def report_PDE(self):
+		print('PHI          = ', self.phix(self.xs, self.xjs, self.cjs))
+		if self.dim==1:
+			print('Drift        = ', self.drift(self.ts, self.xs))
+			print('Diffusion    = ', self.diffusion(self.ts, self.xs))
+			print('Source       = ', self.source(self.ts, self.xs))
+			print('Dirichlet BC = ', self.Dirichlet_bc(self.ts, self.xs))
+		elif self.dim==2:
+			print('Drift        = ', self.drift(self.ts, self.xs, self.ys))
+			print('Diffusion    = ', self.diffusion(self.ts, self.xs, self.ys))
+			print('Source       = ', self.source(self.ts, self.xs, self.ys))
+			print('Dirichlet BC = ', self.Dirichlet_bc(self.ts, self.xs, self.ys))
+		elif self.dim==3:
+			print('Drift        = ', self.drift(self.ts, self.xs, self.ys, self.zs))
+			print('Diffusion    = ', self.diffusion(self.ts, self.xs, self.ys, self.zs))
+			print('Source       = ', self.source(self.ts, self.xs, self.ys, self.zs))
+			print('Dirichlet BC = ', self.Dirichlet_bc(self.ts, self.xs, self.ys, self.zs))
 #######################################################
 #       EVALUATE DERIVATIVES SYMBOLICALLY
 #######################################################
@@ -426,7 +465,7 @@ class rbf_fp:
 	"""
 	@pnt: [x, y, z]
 	"""
-	def Dirichlet_bc(self, t, x, y=None, z=None):
+	def Dirichlet_bc_default(self, t, x, y=None, z=None):
 		return 0.0
 
 #######################################
@@ -528,7 +567,7 @@ class rbf_fp:
 		for i in range(self.NB):
 			node_i  = self.walls_idx[i]
 			point_i = self.get_point(node_i)
-			self.Hnp1[self.NI + i] = self.Dirichlet_bc(tnp1, point_i)
+			self.Hnp1[i] = self.Dirichlet_bc(tnp1, point_i)
 			if not self.M_built:
 				for j in range(self.N):
 					if j<self.NI:
@@ -622,11 +661,10 @@ class rbf_fp:
 			plt.pause(0.001) 
 			plt.show()
 			self.M_built = False
-			time_dependent = False
+			time_dependent = self.time_dependent
 			self.build_linear_system()
 			self.tn += self.dt
 			counter += 1
-
 		self.plot_stats()
 		
 
