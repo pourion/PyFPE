@@ -22,6 +22,7 @@ class rbf_fp:
 	def __init__(self, dim, box, Ndim, tf=1.0, dt=0.01, drift=None, diffusion=None, source=None, phi=None, Dirichlet_bc=None, time_dependent=True):
 		self.PLOTMESH = False
 		self.rbf = "MQ"
+		self.QR  = True
 		self.dt  = dt
 		self.tf  = tf
 		self.tn  = 0.0
@@ -65,7 +66,7 @@ class rbf_fp:
 		self.initial_condition()
 		self.M_built = False
 		self.build_linear_system()
-		self.solve()
+		# self.solve()
 
 
 	def mesh(self, type='uniform'):
@@ -630,16 +631,22 @@ class rbf_fp:
 											      + dPhi_k[0]*np.sum(dD_km[:5]) + dPhi_k[1]*np.sum(dD_km[5:10]) + dPhi_k[2]*np.sum(dD_km[10:]))
 
 	def initialize_Lambdas(self):
-		Q, R = np.linalg.qr(self.Phi)
-		y = Q.T.dot(self.Pn)
-		self.Lambda_n = np.linalg.solve(R, y)
+		if self.QR:
+			Q, R = np.linalg.qr(self.Phi)
+			y = Q.T.dot(self.Pn)
+			self.Lambda_n = np.linalg.solve(R, y)
+		else:
+			self.Lambda_n = np.linalg.solve(self.Phi, self.Pn)
 
 	def step(self, time_dependent):
 		RHS = self.Gn.dot(self.Lambda_n) + self.Hnp1 + self.Enim
-		if time_dependent:
-			self.Q, self.R = np.linalg.qr(self.Mnp1)
-		y = self.Q.T.dot(RHS)
-		self.Lambda_n = np.linalg.solve(self.R, y)
+		if self.QR:
+			if time_dependent:
+				self.Q, self.R = np.linalg.qr(self.Mnp1)
+			y = self.Q.T.dot(RHS)
+			self.Lambda_n = np.linalg.solve(self.R, y)
+		else:
+			self.Lambda_n = np.linalg.solve(self.Mnp1, RHS)
 		self.Pn = self.Phi.dot(self.Lambda_n)
 
 	def solve(self):
