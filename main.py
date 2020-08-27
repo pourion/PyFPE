@@ -16,7 +16,6 @@ class EP(rbf_fp):
 		self.ap_fac  = ap_fac
 		self.gm_factor = gm_factor
 		self.set_params()
-		pdb.set_trace()
 		self.rbf = rbf_fp(self.dim, self.box, self.Ndim, self.tf, self.dt, self.get_ep_drift, self.get_ep_diffusion, self.source, self.phi, self.Dirichlet_bc, True)
 		self.rbf.solve()
 
