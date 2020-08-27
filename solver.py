@@ -154,7 +154,7 @@ class rbf_fp:
 			self.get_walls_internals_coords()
 			if self.PLOTMESH: self.plot_mesh()
 			self.N = self.NI + self.NB
-			self.Delta = 1e-1*(self.xmax - self.xmin)/self.Ndim			
+			self.Delta = 0.002 #5e-2*(self.xmax - self.xmin)/self.Ndim			
 		
 		elif type=='halton':
 			pass
