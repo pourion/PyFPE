@@ -1,4 +1,4 @@
-![me]([https://github.com/pourion/PyFPE/edit/master/example.png](https://github.com/pourion/PyFPE/blob/master/example.png))
+![me](https://github.com/pourion/PyFPE/blob/master/example.png)
 ## A simple Fokker-Planck solver in Python
 
 This is implementation of Radial-Basis-Function method for solving Fokker-Planck type PDEs with
